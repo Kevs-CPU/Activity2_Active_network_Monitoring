@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppState extends ChangeNotifier {
   bool _isDarkMode = false;
-  String _userName = 'Guest User';
+  String _userName = 'User';
 
   bool get isDarkMode => _isDarkMode;
   String get userName => _userName;

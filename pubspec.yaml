@@ -12,6 +12,9 @@ dependencies:
   cupertino_icons: ^1.0.2
   provider: ^6.1.2
 
+  # Activity 2: Monitor Wi-Fi, Cellular, and Offline network changes
+  connectivity_plus: ^6.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

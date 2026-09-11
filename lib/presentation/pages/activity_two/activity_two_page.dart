@@ -36,19 +36,11 @@ class _ActivityTwoPageState extends State<ActivityTwoPage> {
                 onChanged: (value) => setState(() => _preview = value),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  const Icon(Icons.preview),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _preview.isEmpty ? 'Preview will appear here' : _preview,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+Text(
+  _preview.isEmpty ? 'Preview will appear here' : _preview,
+  style: Theme.of(context).textTheme.titleMedium,
+  overflow: TextOverflow.ellipsis,
+),
             ],
           ),
         ),
