@@ -6,7 +6,11 @@ import 'package:flutter/material.dart';
 import '../../../data/network/network_data_source.dart';
 import '../../../data/network/network_repository_impl.dart';
 import '../../../domain/entities/network_status.dart';
+import '../../../domain/usecases/handle_network_request.dart';
 import '../../../domain/usecases/watch_network_status.dart';
+import '../../widgets/network_monitor/network_info_card.dart';
+import '../../widgets/network_monitor/network_request_button.dart';
+import '../../widgets/network_monitor/network_status_card.dart';
 
 class NetworkMonitorPage extends StatefulWidget {
   const NetworkMonitorPage({super.key});
@@ -16,15 +20,16 @@ class NetworkMonitorPage extends StatefulWidget {
       _NetworkMonitorPageState();
 }
 
-class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
+class _NetworkMonitorPageState
+    extends State<NetworkMonitorPage> {
   late final WatchNetworkStatus _watchNetworkStatus;
+  late final HandleNetworkRequest _handleNetworkRequest;
 
-  StreamSubscription<NetworkStatus>? _networkSubscription;
+  StreamSubscription<NetworkStatus>?
+      _networkSubscription;
 
-  // Activity 2: Current network status.
   NetworkStatus? _networkStatus;
 
-  // Activity 2: Request queue state.
   int _pendingRequests = 0;
   String _requestStatus = 'No pending request';
 
@@ -32,7 +37,6 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
   void initState() {
     super.initState();
 
-    // Activity 2: Create Clean Architecture dependencies.
     final dataSource = NetworkDataSource(
       connectivity: Connectivity(),
     );
@@ -45,11 +49,13 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
       repository: repository,
     );
 
-    // Activity 2: Get the current network immediately.
+    _handleNetworkRequest =
+        HandleNetworkRequest();
+
     _loadCurrentNetwork();
 
-    // Activity 2: Listen for real-time network changes.
-    _networkSubscription = _watchNetworkStatus().listen(
+    _networkSubscription =
+        _watchNetworkStatus().listen(
       _handleNetworkChange,
     );
   }
@@ -71,8 +77,6 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
     setState(() {
       _networkStatus = currentNetwork;
     });
-
-    _resumeQueuedRequestIfConnected();
   }
 
   void _handleNetworkChange(NetworkStatus status) {
@@ -82,71 +86,64 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
       _networkStatus = status;
     });
 
-    // Activity 2: Automatically resume queued request
-    // when Wi-Fi or Cellular connection returns.
-    if (status.isConnected && _pendingRequests > 0) {
-      _resumeQueuedRequestIfConnected();
+    if (status.isConnected &&
+        _pendingRequests > 0) {
+      _resumeQueuedRequest();
     }
   }
 
-  void _resumeQueuedRequestIfConnected() {
-    if (_networkStatus == null ||
-        !_networkStatus!.isConnected ||
-        _pendingRequests == 0) {
-      return;
-    }
-
+  Future<void> _resumeQueuedRequest() async {
     setState(() {
       _requestStatus =
           'Connection restored - retrying request...';
     });
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
+    final completed =
+        await _handleNetworkRequest.resume(
+      isConnected: () =>
+          _networkStatus?.isConnected == true,
+    );
 
-      if (_networkStatus?.isConnected == true) {
-        setState(() {
-          _pendingRequests = 0;
-          _requestStatus =
-              'Request completed successfully';
-        });
-      }
-    });
+    if (!mounted) return;
+
+    if (completed) {
+      setState(() {
+        _pendingRequests = 0;
+        _requestStatus =
+            'Request completed successfully';
+      });
+    }
   }
 
-  // Activity 2: Simulate a long-running network request.
   Future<void> _simulateNetworkRequest() async {
     if (_pendingRequests > 0) return;
 
     setState(() {
       _pendingRequests = 1;
-      _requestStatus = 'Request in progress...';
+      _requestStatus =
+          'Request in progress...';
     });
 
-    // Simulate a long-running request.
-    for (int i = 0; i < 5; i++) {
-      await Future.delayed(const Duration(seconds: 1));
-
-      if (!mounted) return;
-
-      // Connection was lost during the request.
-      if (_networkStatus?.isConnected != true) {
-        setState(() {
-          _requestStatus =
-              'Request queued - waiting for connection';
-        });
-
-        return;
-      }
-    }
+    final completed =
+        await _handleNetworkRequest.execute(
+      isConnected: () =>
+          _networkStatus?.isConnected == true,
+    );
 
     if (!mounted) return;
 
-    setState(() {
-      _pendingRequests = 0;
-      _requestStatus =
-          'Request completed successfully';
-    });
+    if (completed) {
+      setState(() {
+        _pendingRequests = 0;
+        _requestStatus =
+            'Request completed successfully';
+      });
+    } else {
+      setState(() {
+        _requestStatus =
+            'Request queued - waiting for connection';
+      });
+    }
   }
 
   IconData _networkIcon() {
@@ -170,7 +167,8 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
       return Colors.green;
     }
 
-    if (_networkStatus?.type == NetworkType.offline) {
+    if (_networkStatus?.type ==
+        NetworkType.offline) {
       return Colors.red;
     }
 
@@ -203,9 +201,6 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final statusColor = _statusColor();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Network Monitor'),
@@ -217,133 +212,36 @@ class _NetworkMonitorPageState extends State<NetworkMonitorPage> {
             crossAxisAlignment:
                 CrossAxisAlignment.start,
             children: [
-              // Activity 2: Current active network.
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor:
-                            statusColor.withValues(alpha: 0.12),
-                        child: Icon(
-                          _networkIcon(),
-                          color: statusColor,
-                          size: 28,
-                        ),
-                      ),
-
-                      const SizedBox(width: 16),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _networkName(),
-                              style: theme
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    fontWeight:
-                                        FontWeight.bold,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _connectionText(),
-                              style: TextStyle(
-                                color: statusColor,
-                                fontWeight:
-                                    FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Activity 2: Live connection indicator.
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              NetworkStatusCard(
+                networkName: _networkName(),
+                connectionText: _connectionText(),
+                networkIcon: _networkIcon(),
+                statusColor: _statusColor(),
               ),
 
               const SizedBox(height: 24),
 
               Text(
                 'Network Status',
-                style:
-                    theme.textTheme.titleMedium,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium,
               ),
 
               const SizedBox(height: 12),
 
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      ListTile(
-                        leading:
-                            const Icon(Icons.network_check),
-                        title:
-                            const Text('Active Network'),
-                        subtitle:
-                            Text(_networkName()),
-                      ),
-
-                      const Divider(),
-
-                      ListTile(
-                        leading:
-                            const Icon(Icons.cloud_queue),
-                        title:
-                            const Text('Pending Requests'),
-                        subtitle: Text(
-                          '$_pendingRequests request'
-                          '${_pendingRequests == 1 ? '' : 's'}',
-                        ),
-                      ),
-
-                      const Divider(),
-
-                      ListTile(
-                        leading:
-                            const Icon(Icons.sync),
-                        title:
-                            const Text('Request Status'),
-                        subtitle:
-                            Text(_requestStatus),
-                      ),
-                    ],
-                  ),
-                ),
+              NetworkInfoCard(
+                networkName: _networkName(),
+                pendingRequests: _pendingRequests,
+                requestStatus: _requestStatus,
               ),
 
               const SizedBox(height: 24),
 
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _pendingRequests == 0
-                      ? _simulateNetworkRequest
-                      : null,
-                  icon:
-                      const Icon(Icons.download),
-                  label: const Text(
-                    'Simulate Network Request',
-                  ),
-                ),
+              NetworkRequestButton(
+                isPending: _pendingRequests > 0,
+                onPressed:
+                    _simulateNetworkRequest,
               ),
             ],
           ),
