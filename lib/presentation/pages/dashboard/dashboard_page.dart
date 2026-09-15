@@ -1,4 +1,3 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -94,76 +93,39 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 14),
 
-              // Vertical activity list
               Expanded(
-                child: StreamBuilder<List<ConnectivityResult>>(
-                  stream: Connectivity().onConnectivityChanged,
-                  builder: (context, snapshot) {
-                    final connectivity = snapshot.data ??
-                        const <ConnectivityResult>[];
+                child: ListView(
+                  padding: const EdgeInsets.only(
+                    bottom: 16,
+                  ),
+                  children: [
+                    ActivityCard(
+                      title: 'Activity One',
+                      subtitle: 'Local counter demo',
+                      icon: Icons.looks_one,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.activityOne,
+                        );
+                      },
+                    ),
 
-                    String networkStatus;
+                    const SizedBox(height: 16),
 
-                    if (connectivity
-                        .contains(ConnectivityResult.wifi)) {
-                      networkStatus = 'Wi-Fi';
-                    } else if (connectivity
-                        .contains(ConnectivityResult.mobile)) {
-                      networkStatus = 'Cellular';
-                    } else {
-                      networkStatus = 'Offline';
-                    }
-
-                    return ListView(
-                      padding: const EdgeInsets.only(
-                        bottom: 16,
-                      ),
-                      children: [
-                        ActivityCard(
-                          title: 'Activity One',
-                          subtitle: 'Local counter demo',
-                          icon: Icons.looks_one,
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.activityOne,
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        ActivityCard(
-                          title: 'Activity Two',
-                          subtitle: 'Local input demo',
-                          icon: Icons.looks_two,
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.activityTwo,
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        ActivityCard(
-                          title: 'Network Monitor',
-                          subtitle:
-                              'Active network & handover',
-                          icon: Icons.network_check,
-                          showNetworkStatus: true,
-                          networkStatus: networkStatus,
-                          onTap: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.networkMonitor,
-                            );
-                          },
-                        ),
-                      ],
-                    );
-                  },
+                    ActivityCard(
+                      title: 'Activity Two',
+                      subtitle:
+                          'Local input & network monitor',
+                      icon: Icons.looks_two,
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.activityTwo,
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],

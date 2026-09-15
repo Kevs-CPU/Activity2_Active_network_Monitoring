@@ -79,12 +79,6 @@ class ActivityCard extends StatelessWidget {
                   ],
                 ),
               ),
-
-              Icon(
-                Icons.chevron_right,
-                size: 30,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
             ],
           ),
         ),

@@ -1,4 +1,6 @@
-# Flutter Portfolio App
+# Flutter Portfolio App 
+
+JAMEO///CELESTIAN
 
 Multi-screen Flutter app with global state management using Provider.
 ACTIVITY #1
