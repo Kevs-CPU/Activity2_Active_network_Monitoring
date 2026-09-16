@@ -1,9 +1,6 @@
 # Flutter Portfolio App 
 
-JAMEO///CELESTIAN
+JAMEO/&/CELESTIAN
 
 
-## Run
 
-flutter pub get
-flutter run
