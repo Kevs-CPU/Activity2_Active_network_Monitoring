@@ -32,8 +32,20 @@ class NetworkHealthCard extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final ColorScheme colorScheme = theme.colorScheme;
 
+    // ============================================================
+    // ACTIVITY 3
+    // Get current health safely.
+    //
+    // Use provider.health first.
+    // If it is not available, use the health from the result.
+    // No forced null check is used.
+    // ============================================================
+
+    final dynamic healthValue =
+        provider.health ?? provider.result?.health;
+
     final String health = _healthName(
-      provider.health ?? provider.result!.health,
+      healthValue,
     );
 
     final Color color = _healthColor(
@@ -62,7 +74,7 @@ class NetworkHealthCard extends StatelessWidget {
           // ======================================================
 
           SizedBox(
-           width: 110,
+            width: 110,
             child: Row(
               children: [
                 Container(
@@ -302,7 +314,9 @@ class NetworkHealthCard extends StatelessWidget {
             ),
           ),
         ),
+
         const SizedBox(height: 2),
+
         Text(
           label,
           maxLines: 1,
@@ -348,6 +362,10 @@ class NetworkHealthCard extends StatelessWidget {
   String _healthName(
     dynamic health,
   ) {
+    if (health == null) {
+      return 'Unknown';
+    }
+
     final String name =
         health.toString().split('.').last;
 
