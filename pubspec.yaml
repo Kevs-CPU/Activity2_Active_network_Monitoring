@@ -1,6 +1,9 @@
 name: flutter_portfolio_clean_architecture
+
 description: A new Flutter project.
+
 publish_to: none
+
 version: 1.0.0+1
 
 environment:
@@ -9,15 +12,27 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   cupertino_icons: ^1.0.2
   provider: ^6.1.2
 
   # Activity 2: Monitor Wi-Fi, Cellular, and Offline network changes
   connectivity_plus: ^6.1.5
 
+  # Activity 3: Actual network measurement
+  http: ^1.5.0
+
+  file_picker: ^13.1.0
+  image_picker: ^1.2.3
+
+  # Persistent app data
+  shared_preferences: ^2.5.3
+  path_provider: ^2.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^2.0.0
 
 flutter:

@@ -5,6 +5,14 @@ enum NetworkType {   // Activity 2: Network Monitor
   offline,
 }
 
+enum NetworkHealth { //activity 3 extintion 
+  excellent,
+  fair,
+  poor,
+  degraded,
+  unknown,
+}                   //activity 3 extintion 
+
 class NetworkStatus {
   final NetworkType type;
 

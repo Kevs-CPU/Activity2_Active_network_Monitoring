@@ -1,0 +1,4322 @@
+﻿===== MAIN.DART =====
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'core/routes/app_routes.dart';
+import 'core/theme/app_theme.dart';
+import 'data/network/network_data_source.dart';
+import 'data/network/network_repository_impl.dart';
+import 'domain/usecases/run_network_diagnostic.dart';
+import 'presentation/providers/network_diagnostic_provider.dart';
+import 'state/app_state.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final AppState appState = AppState();
+
+  await appState.loadSavedData();
+
+  runApp(
+    PortfolioApp(
+      appState: appState,
+    ),
+  );
+}
+
+class PortfolioApp extends StatelessWidget {
+  final AppState appState;
+
+  const PortfolioApp({
+    super.key,
+    required this.appState,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        // Existing global application state
+        ChangeNotifierProvider.value(
+          value: appState,
+        ),
+
+        // Network Diagnostic global state
+        ChangeNotifierProvider(
+          create: (_) {
+            final dataSource = NetworkDataSource(
+              connectivity: Connectivity(),
+            );
+
+            final repository = NetworkRepositoryImpl(
+              dataSource: dataSource,
+            );
+
+            final useCase = RunNetworkDiagnostic(
+              repository: repository,
+            );
+
+            return NetworkDiagnosticProvider(
+              runNetworkDiagnostic: useCase,
+            );
+          },
+        ),
+      ],
+      child: Consumer<AppState>(
+        builder: (context, appState, _) {
+          return MaterialApp(
+            title: 'Flutter Portfolio',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
+            themeMode: appState.isDarkMode
+                ? ThemeMode.dark
+                : ThemeMode.light,
+            initialRoute: AppRoutes.dashboard,
+            onGenerateRoute: AppRoutes.onGenerateRoute,
+          );
+        },
+      ),
+    );
+  }
+}
+===== APP_ROUTES.DART =====
+import 'package:flutter/material.dart';
+
+import '../../presentation/pages/activity_one/activity_one_page.dart';
+import '../../presentation/pages/activity_two/activity_two_page.dart';
+import '../../presentation/pages/dashboard/dashboard_page.dart';
+import '../../presentation/pages/settings/settings_page.dart';
+import '../../presentation/pages/network_monitor/network_monitor_page.dart';
+
+// ============================================================
+// ACTIVITY 3
+// Network Diagnostic Page
+// ============================================================
+
+import '../../presentation/pages/network_diagnostic/network_diagnostic_page.dart';
+
+// ============================================================
+// PROFILE
+// ============================================================
+
+import '../../presentation/pages/profile/profile_page.dart';
+
+class AppRoutes {
+  static const String dashboard = '/';
+  static const String activityOne = '/activity-one';
+  static const String activityTwo = '/activity-two';
+
+  // ============================================================
+  // ACTIVITY 2
+  // Network Monitor
+  // ============================================================
+
+  static const String networkMonitor =
+      '/network-monitor';
+
+  // ============================================================
+  // ACTIVITY 3
+  // Network Diagnostic
+  // ============================================================
+
+  static const String networkDiagnostic =
+      '/network-diagnostic';
+
+  // ============================================================
+  // SETTINGS
+  // ============================================================
+
+  static const String settings = '/settings';
+
+  // ============================================================
+  // PROFILE
+  // ============================================================
+
+  static const String profile = '/profile';
+
+  static Route<dynamic> onGenerateRoute(
+    RouteSettings settings,
+  ) {
+    switch (settings.name) {
+      // ========================================================
+      // DASHBOARD
+      // ========================================================
+
+      case dashboard:
+        return MaterialPageRoute(
+          builder: (_) => const DashboardPage(),
+        );
+
+      // ========================================================
+      // ACTIVITY 1
+      // ========================================================
+
+      case activityOne:
+        return MaterialPageRoute(
+          builder: (_) => const ActivityOnePage(),
+        );
+
+      // ========================================================
+      // ACTIVITY 2
+      // ========================================================
+
+      case activityTwo:
+        return MaterialPageRoute(
+          builder: (_) => const ActivityTwoPage(),
+        );
+
+      // ========================================================
+      // ACTIVITY 2
+      // Network Monitor
+      // ========================================================
+
+      case networkMonitor:
+        return MaterialPageRoute(
+          builder: (_) => const NetworkMonitorPage(),
+        );
+
+      // ========================================================
+      // ACTIVITY 3
+      // Network Diagnostic Dashboard
+      // ========================================================
+
+      case networkDiagnostic:
+        return MaterialPageRoute(
+          builder: (_) => const NetworkDiagnosticPage(),
+        );
+
+      // ========================================================
+      // SETTINGS
+      // ========================================================
+
+      case AppRoutes.settings:
+        return MaterialPageRoute(
+          builder: (_) => const SettingsPage(),
+        );
+
+      // ========================================================
+      // PROFILE
+      // ========================================================
+
+      case profile:
+        return MaterialPageRoute(
+          builder: (_) => const ProfilePage(),
+        );
+
+      // ========================================================
+      // DEFAULT
+      // ========================================================
+
+      default:
+        return MaterialPageRoute(
+          builder: (_) => const DashboardPage(),
+        );
+    }
+  }
+}
+===== NETWORK_DIAGNOSTIC_PAGE.DART =====
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/network_diagnostic_provider.dart';
+import 'widgets/rainbow_arch_progress.dart';
+
+// ============================================================
+// ACTIVITY 3
+// Network Diagnostic Dashboard
+// ============================================================
+
+class NetworkDiagnosticPage extends StatelessWidget {
+  const NetworkDiagnosticPage({super.key});
+
+  // ============================================================
+  // ACTIVITY 3
+  // Design Canvas
+  // ============================================================
+
+  static const double _designWidth = 390;
+  static const double _designHeight = 760;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Diagnostic Colors
+  // ============================================================
+
+  static const Color _success = Color(0xFF45D483);
+  static const Color _warning = Color(0xFFFFC857);
+  static const Color _orange = Color(0xFFFF9B54);
+  static const Color _danger = Color(0xFFFF7272);
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+
+      // ==========================================================
+      // ACTIVITY 3
+      // App Bar
+      // ==========================================================
+
+      appBar: AppBar(
+        backgroundColor:
+            theme.appBarTheme.backgroundColor ??
+            theme.scaffoldBackgroundColor,
+        foregroundColor:
+            theme.appBarTheme.foregroundColor ??
+            colorScheme.onSurface,
+        elevation: 0,
+        centerTitle: false,
+        titleSpacing: 0,
+        toolbarHeight: 58,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Network Diagnostic',
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Real-time connection performance',
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(
+                  alpha: 0.60,
+                ),
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+
+      // ==========================================================
+      // ACTIVITY 3
+      // Provider
+      // ==========================================================
+
+      body: Consumer<NetworkDiagnosticProvider>(
+        builder: (context, provider, child) {
+          return SafeArea(
+            top: false,
+            bottom: true,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Center(
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: _designWidth,
+                      height: _designHeight,
+                      child: _buildDashboard(
+                        context,
+                        provider,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Main Dashboard
+  // ============================================================
+
+  Widget _buildDashboard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final bool hasHealth =
+        provider.result != null ||
+        provider.health != null;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        4,
+        12,
+        8,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildStatusCard(
+            context,
+            provider,
+          ),
+
+          const SizedBox(height: 8),
+
+          _buildProgressCard(
+            context,
+            provider,
+          ),
+
+          const SizedBox(height: 10),
+
+          _buildSectionHeader(
+            context,
+            Icons.show_chart_rounded,
+            'Live Performance',
+          ),
+
+          const SizedBox(height: 6),
+
+          _buildMetricsGrid(
+            context,
+            provider,
+          ),
+
+          const SizedBox(height: 8),
+
+          provider.isRunning
+              ? _buildCurrentTestCard(
+                  context,
+                  provider,
+                )
+              : provider.isMonitoring
+                  ? _buildMonitoringTestCard(
+                      context,
+                      provider,
+                    )
+                  : provider.result != null
+                      ? _buildCompletedTestCard(
+                          context,
+                          provider,
+                        )
+                      : _buildReadyCard(context),
+
+          const SizedBox(height: 8),
+
+          hasHealth
+              ? _buildHealthCard(
+                  context,
+                  provider,
+                )
+              : _buildWaitingHealthCard(context),
+
+          const SizedBox(height: 8),
+
+          _buildSectionHeader(
+            context,
+            Icons.route_rounded,
+            'Diagnostic Sequence',
+          ),
+
+          const SizedBox(height: 4),
+
+          _buildDiagnosticSequence(
+            context,
+            provider,
+          ),
+
+          if (provider.errorMessage != null) ...[
+            const SizedBox(height: 5),
+            _buildErrorCard(
+              context,
+              provider.errorMessage!,
+            ),
+          ],
+
+          const SizedBox(height: 8),
+
+          // ======================================================
+          // LIVE MONITORING CONTROLS
+          //
+          // Added feature only.
+          // Existing dashboard dimensions are preserved.
+          // ======================================================
+
+          _buildMonitoringControls(
+            context,
+            provider,
+          ),
+
+          const SizedBox(height: 7),
+
+          // ======================================================
+          // RUN DIAGNOSTIC
+          // ======================================================
+
+          _buildDiagnosticButton(
+            context,
+            provider,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Status Card
+  // ============================================================
+
+  Widget _buildStatusCard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final bool running = provider.isRunning;
+    final bool monitoring = provider.isMonitoring;
+    final bool completed = provider.result != null;
+
+    final Color color = running
+        ? colorScheme.primary
+        : monitoring
+            ? _success
+            : completed
+                ? _success
+                : colorScheme.onSurface.withValues(
+                    alpha: 0.60,
+                  );
+
+    final String title = running
+        ? 'Diagnostic Running'
+        : monitoring
+            ? 'Live Monitoring Active'
+            : completed
+                ? 'Diagnostic Complete'
+                : 'Diagnostic Ready';
+
+    final String description = running
+        ? _statusDescription(provider)
+        : monitoring
+            ? 'Continuously measuring current network performance'
+            : completed
+                ? 'Latest network test is available'
+                : 'Ready to measure connection performance';
+
+    return Container(
+      height: 72,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: monitoring
+              ? _success.withValues(alpha: 0.35)
+              : completed
+                  ? _success.withValues(alpha: 0.30)
+                  : colorScheme.outline,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              running
+                  ? Icons.sync_rounded
+                  : monitoring
+                      ? Icons.monitor_heart_rounded
+                      : completed
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.network_check_rounded,
+              color: color,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.60,
+                    ),
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (running)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withValues(
+                  alpha: 0.10,
+                ),
+                borderRadius:
+                    BorderRadius.circular(20),
+              ),
+              child: Text(
+                _shortStage(provider.currentStage),
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          if (monitoring)
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 9,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                color: _success.withValues(alpha: 0.10),
+                borderRadius:
+                    BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'MONITORING',
+                style: TextStyle(
+                  color: _success,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          if (completed && !monitoring)
+            const Icon(
+              Icons.check_circle_rounded,
+              color: _success,
+              size: 21,
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Status Description
+  // ============================================================
+
+  String _statusDescription(
+    NetworkDiagnosticProvider provider,
+  ) {
+    final String stage =
+        provider.currentStage.toLowerCase();
+
+    if (stage.contains('download')) {
+      return 'Measuring download bandwidth and ping';
+    }
+
+    if (stage.contains('upload')) {
+      return 'Measuring upload bandwidth and ping';
+    }
+
+    if (stage.contains('packet')) {
+      return 'Checking packet loss';
+    }
+
+    if (stage.contains('idle')) {
+      return 'Measuring baseline latency';
+    }
+
+    return 'Running network performance test';
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Progress Card
+  // ============================================================
+
+  Widget _buildProgressCard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final double percentage =
+        (provider.progress * 100)
+            .clamp(0.0, 100.0)
+            .toDouble();
+
+    final bool complete =
+        provider.result != null ||
+        provider.isMonitoring ||
+        provider.progress >= 1.0;
+
+    return Container(
+      height: 82,
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: complete
+              ? _success.withValues(alpha: 0.25)
+              : colorScheme.outline,
+        ),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              12,
+              11,
+              12,
+              0,
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  complete
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.speed_rounded,
+                  color: complete
+                      ? _success
+                      : colorScheme.primary,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Diagnostic Progress',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${percentage.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: RainbowArchProgress(
+                  progress: provider.progress
+                      .clamp(0.0, 1.0)
+                      .toDouble(),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              12,
+              0,
+              12,
+              7,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _progressDescription(provider),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color:
+                      colorScheme.onSurface.withValues(
+                    alpha: 0.60,
+                  ),
+                  fontSize: 8,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Live Metrics
+  // ============================================================
+
+  Widget _buildMetricsGrid(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return SizedBox(
+      height: 174,
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    Icons.access_time_rounded,
+                    colorScheme.onSurface.withValues(
+                      alpha: 0.60,
+                    ),
+                    'Idle Ping',
+                    _formatNumber(
+                      provider.idlePingMs,
+                      'ms',
+                      decimals: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    Icons.download_rounded,
+                    colorScheme.primary,
+                    'Download',
+                    _formatNumber(
+                      provider.downloadMbps,
+                      'Mbps',
+                      decimals: 2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 7),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    Icons.network_ping_rounded,
+                    colorScheme.onSurface.withValues(
+                      alpha: 0.60,
+                    ),
+                    'Download Ping',
+                    _formatNumber(
+                      provider.downloadPingMs,
+                      'ms',
+                      decimals: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    Icons.upload_rounded,
+                    colorScheme.primary,
+                    'Upload',
+                    _formatNumber(
+                      provider.uploadMbps,
+                      'Mbps',
+                      decimals: 2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 7),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    Icons.network_ping_rounded,
+                    colorScheme.onSurface.withValues(
+                      alpha: 0.60,
+                    ),
+                    'Upload Ping',
+                    _formatNumber(
+                      provider.uploadPingMs,
+                      'ms',
+                      decimals: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildMetricTile(
+                    context,
+                    Icons.shield_outlined,
+                    _success,
+                    'Packet Loss',
+                    _formatNumber(
+                      provider.packetLossPercent,
+                      '%',
+                      decimals: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Metric Tile
+  // ============================================================
+
+  Widget _buildMetricTile(
+    BuildContext context,
+    IconData icon,
+    Color iconColor,
+    String title,
+    String value,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: colorScheme.outline,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 31,
+            height: 31,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.60,
+                    ),
+                    fontSize: 8,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Current Test Card
+  // ============================================================
+
+  Widget _buildCurrentTestCard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final String stage = provider.currentStage;
+    final String lower = stage.toLowerCase();
+
+    final bool download = lower.contains('download');
+    final bool upload = lower.contains('upload');
+    final bool packet =
+        lower.contains('packet') ||
+        lower.contains('loss');
+
+    final bool idle =
+        lower.contains('idle') ||
+        lower.contains('ping');
+
+    final IconData icon = download
+        ? Icons.download_rounded
+        : upload
+            ? Icons.upload_rounded
+            : packet
+                ? Icons.shield_outlined
+                : Icons.speed_rounded;
+
+    final String title = download
+        ? 'Download Bandwidth'
+        : upload
+            ? 'Upload Bandwidth'
+            : packet
+                ? 'Packet Loss'
+                : idle
+                    ? 'Idle Ping'
+                    : 'Network Test';
+
+    final String value = download
+        ? _formatNumber(
+            provider.downloadMbps,
+            'Mbps',
+            decimals: 2,
+          )
+        : upload
+            ? _formatNumber(
+                provider.uploadMbps,
+                'Mbps',
+                decimals: 2,
+              )
+            : packet
+                ? _formatNumber(
+                    provider.packetLossPercent,
+                    '%',
+                    decimals: 1,
+                  )
+                : _formatNumber(
+                    provider.idlePingMs,
+                    'ms',
+                    decimals: 1,
+                  );
+
+    final String secondary = download
+        ? _formatNumber(
+            provider.downloadPingMs,
+            'ms',
+            decimals: 1,
+          )
+        : upload
+            ? _formatNumber(
+                provider.uploadPingMs,
+                'ms',
+                decimals: 1,
+              )
+            : '';
+
+    return Container(
+      height: 63,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.primary.withValues(
+            alpha: 0.45,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(
+                alpha: 0.10,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              color: colorScheme.primary,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CURRENT TEST',
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.40,
+                    ),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (download || upload) ...[
+            _buildSmallValue(
+              context,
+              value,
+              'Speed',
+            ),
+            Container(
+              height: 27,
+              width: 1,
+              margin: const EdgeInsets.symmetric(
+                horizontal: 9,
+              ),
+              color: colorScheme.outline,
+            ),
+            _buildSmallValue(
+              context,
+              secondary,
+              'Ping',
+            ),
+          ] else
+            _buildSmallValue(
+              context,
+              value,
+              packet ? 'Loss' : 'Latency',
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Monitoring Test Card
+  // ============================================================
+
+  Widget _buildMonitoringTestCard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final String stage =
+        provider.currentStage.toLowerCase();
+
+    final bool download =
+        stage.contains('download');
+
+    final bool upload =
+        stage.contains('upload');
+
+    final bool packet =
+        stage.contains('packet') ||
+        stage.contains('loss');
+
+    final String title = download
+        ? 'Live Download'
+        : upload
+            ? 'Live Upload'
+            : packet
+                ? 'Live Packet Loss'
+                : 'Live Ping';
+
+    final String value = download
+        ? _formatNumber(
+            provider.downloadMbps,
+            'Mbps',
+            decimals: 2,
+          )
+        : upload
+            ? _formatNumber(
+                provider.uploadMbps,
+                'Mbps',
+                decimals: 2,
+              )
+            : packet
+                ? _formatNumber(
+                    provider.packetLossPercent,
+                    '%',
+                    decimals: 1,
+                  )
+                : _formatNumber(
+                    provider.idlePingMs,
+                    'ms',
+                    decimals: 1,
+                  );
+
+    return Container(
+      height: 63,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _success.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _success.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.monitor_heart_rounded,
+              color: _success,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'LIVE MONITORING',
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.40,
+                    ),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildSmallValue(
+            context,
+            value,
+            'Current',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Completed Test Card
+  // ============================================================
+
+  Widget _buildCompletedTestCard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Container(
+      height: 63,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.primary,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colorScheme.primary.withValues(
+                alpha: 0.10,
+              ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.speed_rounded,
+              color: colorScheme.primary,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'CURRENT TEST',
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.40,
+                    ),
+                    fontSize: 7,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Completed',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'Diagnostic finished',
+            style: TextStyle(
+              color:
+                  colorScheme.onSurface.withValues(
+                alpha: 0.60,
+              ),
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Ready Card
+  // ============================================================
+
+  Widget _buildReadyCard(
+    BuildContext context,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Container(
+      height: 63,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outline,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.speed_rounded,
+            color:
+                colorScheme.onSurface.withValues(
+              alpha: 0.60,
+            ),
+            size: 19,
+          ),
+          const SizedBox(width: 9),
+          Text(
+            'Ready for diagnostic',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            'Press Start',
+            style: TextStyle(
+              color:
+                  colorScheme.onSurface.withValues(
+                alpha: 0.40,
+              ),
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Small Value
+  // ============================================================
+
+  Widget _buildSmallValue(
+    BuildContext context,
+    String value,
+    String label,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Column(
+      mainAxisAlignment:
+          MainAxisAlignment.center,
+      crossAxisAlignment:
+          CrossAxisAlignment.end,
+      children: [
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            color:
+                colorScheme.onSurface.withValues(
+              alpha: 0.40,
+            ),
+            fontSize: 7,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Waiting Health Card
+  // ============================================================
+
+  Widget _buildWaitingHealthCard(
+    BuildContext context,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Container(
+      height: 57,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: colorScheme.outline,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.shield_outlined,
+            color:
+                colorScheme.onSurface.withValues(
+              alpha: 0.40,
+            ),
+            size: 19,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              'Network Health',
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            'Waiting for results',
+            style: TextStyle(
+              color:
+                  colorScheme.onSurface.withValues(
+                alpha: 0.40,
+              ),
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Network Health
+  // ============================================================
+
+  Widget _buildHealthCard(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final dynamic healthValue =
+        provider.health ?? provider.result?.health;
+
+    final String health =
+        _healthName(healthValue);
+
+    final Color color =
+        _healthColor(
+      health,
+      colorScheme,
+    );
+
+    return Container(
+      height: 75,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.30),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              health.toLowerCase() == 'excellent'
+                  ? Icons.shield_rounded
+                  : Icons.shield_outlined,
+              color: color,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 76,
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  provider.isMonitoring
+                      ? 'LIVE NETWORK HEALTH'
+                      : 'NETWORK HEALTH',
+                  maxLines: 1,
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.40,
+                    ),
+                    fontSize: 6,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.7,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  health.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: _buildHealthMiniStat(
+              context,
+              _formatNumber(
+                provider.downloadMbps,
+                'Mbps',
+                decimals: 1,
+              ),
+              'Download',
+            ),
+          ),
+          _buildVerticalDivider(context),
+          Expanded(
+            child: _buildHealthMiniStat(
+              context,
+              _formatNumber(
+                provider.uploadMbps,
+                'Mbps',
+                decimals: 1,
+              ),
+              'Upload',
+            ),
+          ),
+          _buildVerticalDivider(context),
+          Expanded(
+            child: _buildHealthMiniStat(
+              context,
+              _formatNumber(
+                provider.downloadPingMs,
+                'ms',
+                decimals: 0,
+              ),
+              'Ping',
+            ),
+          ),
+          _buildVerticalDivider(context),
+          Expanded(
+            child: _buildHealthMiniStat(
+              context,
+              _formatNumber(
+                provider.packetLossPercent,
+                '%',
+                decimals: 0,
+              ),
+              'Loss',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Health Mini Statistic
+  // ============================================================
+
+  Widget _buildHealthMiniStat(
+    BuildContext context,
+    String value,
+    String label,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Column(
+      mainAxisAlignment:
+          MainAxisAlignment.center,
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color:
+                colorScheme.onSurface.withValues(
+              alpha: 0.40,
+            ),
+            fontSize: 6,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Divider
+  // ============================================================
+
+  Widget _buildVerticalDivider(
+    BuildContext context,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Container(
+      width: 1,
+      height: 24,
+      margin: const EdgeInsets.symmetric(
+        horizontal: 1,
+      ),
+      color: colorScheme.outline,
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Diagnostic Sequence
+  // ============================================================
+
+  Widget _buildDiagnosticSequence(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final int activeStep =
+        _getActiveStep(provider);
+
+    const List<String> steps = [
+      'Ping',
+      'Download',
+      'Upload',
+      'Loss',
+      'Health',
+    ];
+
+    final bool completedAll =
+        provider.result != null;
+
+    return SizedBox(
+      height: 48,
+      child: Row(
+        children: List.generate(
+          steps.length,
+          (index) {
+            final bool completed =
+                completedAll ||
+                index < activeStep;
+
+            final bool active =
+                !completedAll &&
+                !provider.isMonitoring &&
+                index == activeStep;
+
+            final Color color = completed
+                ? _success
+                : active
+                    ? colorScheme.primary
+                    : colorScheme.onSurface.withValues(
+                        alpha: 0.30,
+                      );
+
+            return Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 25,
+                          height: 25,
+                          decoration: BoxDecoration(
+                            color: completed
+                                ? _success.withValues(
+                                    alpha: 0.12,
+                                  )
+                                : Colors.transparent,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: color,
+                              width: 1.4,
+                            ),
+                          ),
+                          child: Center(
+                            child: completed
+                                ? const Icon(
+                                    Icons.check_rounded,
+                                    color: _success,
+                                    size: 14,
+                                  )
+                                : Text(
+                                    '${index + 1}',
+                                    style: TextStyle(
+                                      color: active
+                                          ? colorScheme.primary
+                                          : colorScheme
+                                              .onSurface
+                                              .withValues(
+                                                alpha: 0.40,
+                                              ),
+                                      fontSize: 8,
+                                      fontWeight:
+                                          FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          steps[index],
+                          maxLines: 1,
+                          overflow:
+                              TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: active || completed
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurface
+                                    .withValues(
+                                      alpha: 0.40,
+                                    ),
+                            fontSize: 7,
+                            fontWeight: active
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (index < steps.length - 1)
+                    Container(
+                      width: 9,
+                      height: 1,
+                      color: completed
+                          ? _success.withValues(
+                              alpha: 0.45,
+                            )
+                          : colorScheme.outline,
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Live Monitoring Controls
+  //
+  // NEW FEATURE
+  // Monitor + Stop
+  // ============================================================
+
+  Widget _buildMonitoringControls(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final bool canMonitor =
+        provider.result != null &&
+        !provider.isRunning &&
+        !provider.isMonitoring;
+
+    final bool canStop =
+        provider.isMonitoring;
+
+    return Container(
+      height: 61,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+        vertical: 7,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: provider.isMonitoring
+              ? _success.withValues(alpha: 0.35)
+              : colorScheme.outline,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: provider.isMonitoring
+                  ? _success.withValues(alpha: 0.10)
+                  : colorScheme.primary.withValues(
+                      alpha: 0.08,
+                    ),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              provider.isMonitoring
+                  ? Icons.monitor_heart_rounded
+                  : Icons.monitor_rounded,
+              color: provider.isMonitoring
+                  ? _success
+                  : colorScheme.primary,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  provider.isMonitoring
+                      ? 'Live Monitoring Active'
+                      : 'Live Performance Monitoring',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  provider.isMonitoring
+                      ? 'Updating network values continuously'
+                      : 'Monitor network performance after testing',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color:
+                        colorScheme.onSurface.withValues(
+                      alpha: 0.50,
+                    ),
+                    fontSize: 7,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 7),
+
+          // ======================================================
+          // MONITOR BUTTON
+          // ======================================================
+
+          SizedBox(
+            height: 38,
+            child: OutlinedButton.icon(
+              onPressed: canMonitor
+                  ? provider.startMonitoring
+                  : null,
+              icon: const Icon(
+                Icons.play_arrow_rounded,
+                size: 15,
+              ),
+              label: const Text(
+                'Monitor',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor:
+                    colorScheme.primary,
+                disabledForegroundColor:
+                    colorScheme.onSurface.withValues(
+                  alpha: 0.25,
+                ),
+                side: BorderSide(
+                  color: canMonitor
+                      ? colorScheme.primary
+                      : colorScheme.outline,
+                ),
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(9),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // ======================================================
+          // STOP BUTTON
+          // ======================================================
+
+          SizedBox(
+            height: 38,
+            child: ElevatedButton.icon(
+              onPressed: canStop
+                  ? provider.stopMonitoring
+                  : null,
+              icon: const Icon(
+                Icons.stop_rounded,
+                size: 15,
+              ),
+              label: const Text(
+                'Stop',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: canStop
+                    ? _danger
+                    : colorScheme.onSurface.withValues(
+                        alpha: 0.08,
+                      ),
+                foregroundColor: canStop
+                    ? Colors.white
+                    : colorScheme.onSurface.withValues(
+                        alpha: 0.30,
+                      ),
+                disabledBackgroundColor:
+                    colorScheme.onSurface.withValues(
+                  alpha: 0.08,
+                ),
+                disabledForegroundColor:
+                    colorScheme.onSurface.withValues(
+                  alpha: 0.30,
+                ),
+                elevation: 0,
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(9),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Diagnostic Button
+  // ============================================================
+
+  Widget _buildDiagnosticButton(
+    BuildContext context,
+    NetworkDiagnosticProvider provider,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final bool running =
+        provider.isRunning;
+
+    final Color buttonBackground = running
+        ? colorScheme.primary.withValues(alpha: 0.35)
+        : colorScheme.primary;
+
+    final Color buttonForeground =
+        colorScheme.onPrimary;
+
+    return SizedBox(
+      height: 52,
+      child: ElevatedButton.icon(
+        onPressed: running
+            ? null
+            : provider.runDiagnostic,
+        icon: running
+            ? SizedBox(
+                width: 15,
+                height: 15,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: buttonForeground,
+                ),
+              )
+            : const Icon(
+                Icons.play_arrow_rounded,
+                size: 19,
+              ),
+        label: Text(
+          running
+              ? 'Running Diagnostic...'
+              : provider.result != null
+                  ? 'Run Diagnostic Again'
+                  : 'Start Diagnostic',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: buttonBackground,
+          foregroundColor: buttonForeground,
+          disabledForegroundColor:
+              colorScheme.onPrimary,
+          disabledBackgroundColor:
+              colorScheme.primary.withValues(
+            alpha: 0.35,
+          ),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Section Header
+  // ============================================================
+
+  Widget _buildSectionHeader(
+    BuildContext context,
+    IconData icon,
+    String title,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    return Row(
+      children: [
+        Icon(
+          icon,
+          color: colorScheme.onSurface,
+          size: 17,
+        ),
+        const SizedBox(width: 7),
+        Text(
+          title,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Error Card
+  // ============================================================
+
+  Widget _buildErrorCard(
+    BuildContext context,
+    String message,
+  ) {
+    final ThemeData theme = Theme.of(context);
+    final ColorScheme colorScheme = theme.colorScheme;
+
+    final Color errorBackground =
+        colorScheme.error.withValues(alpha: 0.10);
+
+    final Color errorBorder =
+        colorScheme.error.withValues(alpha: 0.35);
+
+    return Container(
+      height: 35,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+      ),
+      decoration: BoxDecoration(
+        color: errorBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: errorBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            color: colorScheme.error,
+            size: 15,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colorScheme.error,
+                fontSize: 8,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Active Diagnostic Step
+  // ============================================================
+
+  int _getActiveStep(
+    NetworkDiagnosticProvider provider,
+  ) {
+    if (provider.result != null) {
+      return 5;
+    }
+
+    final String stage =
+        provider.currentStage.toLowerCase();
+
+    if (stage.contains('packet') ||
+        stage.contains('loss')) {
+      return 3;
+    }
+
+    if (stage.contains('upload')) {
+      return 2;
+    }
+
+    if (stage.contains('download')) {
+      return 1;
+    }
+
+    if (stage.contains('idle') ||
+        stage.contains('ping')) {
+      return 0;
+    }
+
+    return 0;
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Progress Description
+  // ============================================================
+
+  String _progressDescription(
+    NetworkDiagnosticProvider provider,
+  ) {
+    if (provider.isMonitoring) {
+      return 'Diagnostic complete â€” live monitoring is active';
+    }
+
+    if (provider.result != null) {
+      return 'Diagnostic completed successfully';
+    }
+
+    final String stage =
+        provider.currentStage.toLowerCase();
+
+    if (stage.contains('download')) {
+      return 'Measuring download bandwidth + ping';
+    }
+
+    if (stage.contains('upload')) {
+      return 'Measuring upload bandwidth + ping';
+    }
+
+    if (stage.contains('packet') ||
+        stage.contains('loss')) {
+      return 'Checking packet loss';
+    }
+
+    if (stage.contains('idle') ||
+        stage.contains('ping')) {
+      return 'Measuring baseline latency';
+    }
+
+    if (provider.isRunning) {
+      return 'Running network performance test';
+    }
+
+    return 'Ready to test connection performance';
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Short Stage
+  // ============================================================
+
+  String _shortStage(
+    String stage,
+  ) {
+    final String value =
+        stage.toLowerCase();
+
+    if (value.contains('download')) {
+      return 'DOWNLOAD';
+    }
+
+    if (value.contains('upload')) {
+      return 'UPLOAD';
+    }
+
+    if (value.contains('packet') ||
+        value.contains('loss')) {
+      return 'PACKET LOSS';
+    }
+
+    if (value.contains('idle') ||
+        value.contains('ping')) {
+      return 'IDLE PING';
+    }
+
+    return 'TESTING';
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Number Formatting
+  // ============================================================
+
+  String _formatNumber(
+    double? value,
+    String unit, {
+    required int decimals,
+  }) {
+    if (value == null) {
+      return '--';
+    }
+
+    final String formatted =
+        value.toStringAsFixed(decimals);
+
+    return unit.isEmpty
+        ? formatted
+        : '$formatted $unit';
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Health Name
+  // ============================================================
+
+  String _healthName(
+    dynamic health,
+  ) {
+    if (health == null) {
+      return 'Unknown';
+    }
+
+    final String name =
+        health.toString().split('.').last;
+
+    switch (name) {
+      case 'excellent':
+        return 'Excellent';
+
+      case 'fair':
+        return 'Fair';
+
+      case 'poor':
+        return 'Poor';
+
+      case 'degraded':
+        return 'Degraded';
+
+      default:
+        return 'Unknown';
+    }
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Health Color
+  // ============================================================
+
+  Color _healthColor(
+    String health,
+    ColorScheme colorScheme,
+  ) {
+    switch (health.toLowerCase()) {
+      case 'excellent':
+        return _success;
+
+      case 'fair':
+        return _warning;
+
+      case 'poor':
+        return _orange;
+
+      case 'degraded':
+        return _danger;
+
+      default:
+        return colorScheme.onSurface.withValues(
+          alpha: 0.60,
+        );
+    }
+  }
+}
+===== NETWORK_DIAGNOSTIC_PROVIDER.DART =====
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import '../../domain/entities/network_diagnostic_result.dart';
+import '../../domain/entities/network_diagnostic_update.dart';
+import '../../domain/entities/network_status.dart';
+import '../../domain/usecases/run_network_diagnostic.dart';
+
+class NetworkDiagnosticProvider extends ChangeNotifier {
+  final RunNetworkDiagnostic runNetworkDiagnostic;
+
+  NetworkDiagnosticProvider({
+    required this.runNetworkDiagnostic,
+  });
+
+  // ============================================================
+  // Diagnostic stream subscription
+  // ============================================================
+
+  StreamSubscription<NetworkDiagnosticUpdate>?
+      _diagnosticSubscription;
+
+  // ============================================================
+  // Diagnostic state
+  // ============================================================
+
+  NetworkDiagnosticResult? _result;
+
+  bool _isRunning = false;
+
+  bool _isMonitoring = false;
+
+  String? _errorMessage;
+
+  // ============================================================
+  // Progress state
+  // ============================================================
+
+  String _currentStage = 'Ready';
+
+  double _progress = 0.0;
+
+  // ============================================================
+  // Current test values
+  // ============================================================
+
+  double? _currentValue;
+
+  double? _secondaryValue;
+
+  // ============================================================
+  // Network measurements
+  // ============================================================
+
+  double? _idlePingMs;
+
+  double? _downloadMbps;
+
+  double? _downloadPingMs;
+
+  double? _uploadMbps;
+
+  double? _uploadPingMs;
+
+  double? _packetLossPercent;
+
+  // ============================================================
+  // Network health
+  // ============================================================
+
+  NetworkHealth? _health;
+
+  // ============================================================
+  // Latest update
+  // ============================================================
+
+  NetworkDiagnosticUpdate? _latestUpdate;
+
+  // ============================================================
+  // Getters
+  // ============================================================
+
+  NetworkDiagnosticResult? get result => _result;
+
+  bool get isRunning => _isRunning;
+
+  bool get isMonitoring => _isMonitoring;
+
+  bool get isCompleted => _result != null;
+
+  String? get errorMessage => _errorMessage;
+
+  String get currentStage => _currentStage;
+
+  double get progress => _progress;
+
+  double? get currentValue => _currentValue;
+
+  double? get secondaryValue => _secondaryValue;
+
+  double? get idlePingMs => _idlePingMs;
+
+  double? get downloadMbps => _downloadMbps;
+
+  double? get downloadPingMs => _downloadPingMs;
+
+  double? get uploadMbps => _uploadMbps;
+
+  double? get uploadPingMs => _uploadPingMs;
+
+  double? get packetLossPercent => _packetLossPercent;
+
+  NetworkHealth? get health => _health;
+
+  NetworkDiagnosticUpdate? get latestUpdate => _latestUpdate;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Run complete network diagnostic
+  // ============================================================
+
+  Future<void> runDiagnostic() async {
+    // Do not start another diagnostic while one is already
+    // running.
+    if (_isRunning) {
+      return;
+    }
+
+    // A new diagnostic should not run at the same time as
+    // live monitoring.
+    if (_isMonitoring) {
+      await stopMonitoring();
+    }
+
+    // ==========================================================
+    // Reset diagnostic state
+    // ==========================================================
+
+    _isRunning = true;
+
+    _errorMessage = null;
+
+    _result = null;
+
+    _currentStage = 'Starting';
+
+    _progress = 0.0;
+
+    _currentValue = null;
+
+    _secondaryValue = null;
+
+    _idlePingMs = null;
+
+    _downloadMbps = null;
+
+    _downloadPingMs = null;
+
+    _uploadMbps = null;
+
+    _uploadPingMs = null;
+
+    _packetLossPercent = null;
+
+    _health = null;
+
+    _latestUpdate = null;
+
+    notifyListeners();
+
+    try {
+      // ========================================================
+      // Subscribe to realtime diagnostic updates.
+      //
+      // IMPORTANT:
+      // This subscription must remain active after the initial
+      // diagnostic so that Live Monitoring updates continue
+      // reaching the Provider.
+      // ========================================================
+
+      await _diagnosticSubscription?.cancel();
+
+      _diagnosticSubscription =
+          runNetworkDiagnostic.watchUpdates().listen(
+        _handleDiagnosticUpdate,
+        onError: (Object error) {
+          _errorMessage = error.toString();
+
+          notifyListeners();
+        },
+      );
+
+      // ========================================================
+      // Run complete diagnostic.
+      // ========================================================
+
+      final NetworkDiagnosticResult diagnosticResult =
+          await runNetworkDiagnostic();
+
+      _result = diagnosticResult;
+
+      // ========================================================
+      // Preserve final diagnostic values.
+      // ========================================================
+
+      _idlePingMs = diagnosticResult.idlePingMs;
+
+      _downloadMbps = diagnosticResult.downloadMbps;
+
+      _downloadPingMs = diagnosticResult.downloadPingMs;
+
+      _uploadMbps = diagnosticResult.uploadMbps;
+
+      _uploadPingMs = diagnosticResult.uploadPingMs;
+
+      _packetLossPercent =
+          diagnosticResult.packetLossPercent;
+
+      _health = diagnosticResult.health;
+
+      // ========================================================
+      // Diagnostic is complete.
+      // ========================================================
+
+      _currentStage = 'Diagnostic Complete';
+
+      _progress = 1.0;
+    } catch (error) {
+      _errorMessage = error.toString();
+    } finally {
+      _isRunning = false;
+
+      // ========================================================
+      // IMPORTANT:
+      // Do NOT cancel _diagnosticSubscription here.
+      //
+      // Live Monitoring uses the same update stream.
+      // The subscription is cancelled only when:
+      // - Provider is disposed
+      // - A new subscription is created
+      // ========================================================
+
+      notifyListeners();
+    }
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Start Live Performance Monitoring
+  // ============================================================
+
+  Future<void> startMonitoring() async {
+    // Monitoring only makes sense after a completed diagnostic.
+    if (_result == null) {
+      return;
+    }
+
+    // Do not start monitoring while the diagnostic is running.
+    if (_isRunning) {
+      return;
+    }
+
+    // Already monitoring.
+    if (_isMonitoring) {
+      return;
+    }
+
+    try {
+      _errorMessage = null;
+
+      _isMonitoring = true;
+
+      _currentStage = 'Live Performance';
+
+      // ========================================================
+      // Live monitoring always keeps progress at 100%.
+      // ========================================================
+
+      _progress = 1.0;
+
+      notifyListeners();
+
+      // ========================================================
+      // Start the actual monitoring loop in the Data layer.
+      //
+      // The DataSource starts the loop without blocking this
+      // Provider until monitoring is stopped.
+      // ========================================================
+
+      await runNetworkDiagnostic.startLiveMonitoring();
+    } catch (error) {
+      _isMonitoring = false;
+
+      _errorMessage = error.toString();
+
+      notifyListeners();
+    }
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Stop Live Performance Monitoring
+  // ============================================================
+
+  Future<void> stopMonitoring() async {
+    if (!_isMonitoring) {
+      return;
+    }
+
+    try {
+      await runNetworkDiagnostic.stopLiveMonitoring();
+    } catch (error) {
+      _errorMessage = error.toString();
+    } finally {
+      _isMonitoring = false;
+
+      // Keep diagnostic progress at 100% after monitoring stops.
+      _progress = 1.0;
+
+      // Show completed state again.
+      if (_result != null) {
+        _currentStage = 'Diagnostic Complete';
+      }
+
+      notifyListeners();
+    }
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Handle realtime diagnostic updates
+  // ============================================================
+
+  void _handleDiagnosticUpdate(
+    NetworkDiagnosticUpdate update,
+  ) {
+    _latestUpdate = update;
+
+    // ==========================================================
+    // Stage
+    // ==========================================================
+
+    _currentStage = update.stage;
+
+    // ==========================================================
+    // Progress
+    //
+    // Live Monitoring must always remain at 100%.
+    // ==========================================================
+
+    if (_isMonitoring) {
+      _progress = 1.0;
+    } else {
+      _progress =
+          update.progress.clamp(0.0, 1.0).toDouble();
+    }
+
+    // ==========================================================
+    // Current values
+    // ==========================================================
+
+    _currentValue = null;
+
+    _secondaryValue = null;
+
+    // ==========================================================
+    // Preserve latest measurement values.
+    // ==========================================================
+
+    if (update.idlePingMs != null) {
+      _idlePingMs = update.idlePingMs;
+    }
+
+    if (update.downloadMbps != null) {
+      _downloadMbps = update.downloadMbps;
+    }
+
+    if (update.downloadPingMs != null) {
+      _downloadPingMs = update.downloadPingMs;
+    }
+
+    if (update.uploadMbps != null) {
+      _uploadMbps = update.uploadMbps;
+    }
+
+    if (update.uploadPingMs != null) {
+      _uploadPingMs = update.uploadPingMs;
+    }
+
+    if (update.packetLossPercent != null) {
+      _packetLossPercent = update.packetLossPercent;
+    }
+
+    // ==========================================================
+    // Health
+    //
+    // This is important for Live Monitoring.
+    // The UI will update the health card whenever the
+    // DataSource sends new measurements.
+    // ==========================================================
+
+    if (update.health != null &&
+        update.health != NetworkHealth.unknown) {
+      _health = update.health;
+    }
+
+    // ==========================================================
+    // Determine which value is currently being measured.
+    // ==========================================================
+
+    final String stage =
+        update.stage.toLowerCase();
+
+    if (stage.contains('idle ping')) {
+      _currentValue = update.idlePingMs;
+    } else if (stage.contains('download')) {
+      _currentValue = update.downloadMbps;
+
+      _secondaryValue = update.downloadPingMs;
+    } else if (stage.contains('upload')) {
+      _currentValue = update.uploadMbps;
+
+      _secondaryValue = update.uploadPingMs;
+    } else if (stage.contains('packet loss')) {
+      _currentValue = update.packetLossPercent;
+    }
+
+    // ==========================================================
+    // Diagnostic complete
+    // ==========================================================
+
+    if (stage.contains('diagnostic complete')) {
+      _progress = 1.0;
+    }
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // Clear diagnostic result
+  // ============================================================
+
+  void clearResult() {
+    // Do not clear the result while monitoring.
+    if (_isMonitoring) {
+      return;
+    }
+
+    _result = null;
+
+    _errorMessage = null;
+
+    _currentStage = 'Ready';
+
+    _progress = 0.0;
+
+    _currentValue = null;
+
+    _secondaryValue = null;
+
+    _idlePingMs = null;
+
+    _downloadMbps = null;
+
+    _downloadPingMs = null;
+
+    _uploadMbps = null;
+
+    _uploadPingMs = null;
+
+    _packetLossPercent = null;
+
+    _health = null;
+
+    _latestUpdate = null;
+
+    notifyListeners();
+  }
+
+  // ============================================================
+  // Dispose
+  // ============================================================
+
+  @override
+  void dispose() {
+    _diagnosticSubscription?.cancel();
+
+    // The actual live monitoring is normally stopped by the
+    // page/provider lifecycle before disposal.
+    //
+    // The subscription cancellation here prevents further
+    // Provider updates after this object is destroyed.
+
+    super.dispose();
+  }
+}
+===== NETWORK_REPOSITORY_IMPL.DART =====
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+import '../../domain/entities/network_diagnostic_result.dart';
+import '../../domain/entities/network_diagnostic_update.dart';
+import '../../domain/entities/network_status.dart';
+import '../../domain/repositories/network_repository.dart';
+import 'network_data_source.dart';
+
+// ============================================================
+// ACTIVITY 2 + ACTIVITY 3
+// Network Repository Implementation
+//
+// Connects the Domain layer with the Data layer.
+//
+// ACTIVITY 2:
+// - Network connectivity monitoring
+//
+// ACTIVITY 3:
+// - Network diagnostic measurements
+// - Realtime diagnostic updates
+// - Live performance monitoring
+// ============================================================
+
+class NetworkRepositoryImpl implements NetworkRepository {
+  final NetworkDataSource dataSource;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Realtime diagnostic update stream.
+  // ============================================================
+
+  final StreamController<NetworkDiagnosticUpdate>
+      _diagnosticUpdateController =
+      StreamController<NetworkDiagnosticUpdate>.broadcast();
+
+  // ============================================================
+  // ACTIVITY 3
+  // Latest diagnostic values.
+  //
+  // These values are preserved between realtime updates so
+  // that one changing value does not erase the others.
+  // ============================================================
+
+  double? _idlePingMs;
+  double? _downloadMbps;
+  double? _downloadPingMs;
+  double? _uploadMbps;
+  double? _uploadPingMs;
+  double? _packetLossPercent;
+
+  // ============================================================
+  // Constructor
+  // ============================================================
+
+  NetworkRepositoryImpl({
+    required this.dataSource,
+  }) {
+    // ==========================================================
+    // ACTIVITY 3
+    // Receive realtime updates from the DataSource.
+    // ==========================================================
+
+    dataSource.onDiagnosticUpdate = (
+      String stage,
+      double? value,
+      double? secondaryValue,
+      double progress,
+    ) async {
+      final String normalizedStage = stage.toLowerCase();
+
+      // ========================================================
+      // IDLE PING
+      // ========================================================
+
+      if (normalizedStage.contains('idle ping')) {
+        if (value != null) {
+          _idlePingMs = value;
+        }
+      }
+
+      // ========================================================
+      // DOWNLOAD
+      // ========================================================
+
+      else if (normalizedStage.contains('download')) {
+        if (value != null) {
+          _downloadMbps = value;
+        }
+
+        if (secondaryValue != null) {
+          _downloadPingMs = secondaryValue;
+        }
+      }
+
+      // ========================================================
+      // UPLOAD
+      // ========================================================
+
+      else if (normalizedStage.contains('upload')) {
+        if (value != null) {
+          _uploadMbps = value;
+        }
+
+        if (secondaryValue != null) {
+          _uploadPingMs = secondaryValue;
+        }
+      }
+
+      // ========================================================
+      // PACKET LOSS
+      // ========================================================
+
+      else if (normalizedStage.contains('packet loss')) {
+        if (value != null) {
+          _packetLossPercent = value;
+        }
+      }
+
+      // ========================================================
+      // Calculate current network health.
+      // ========================================================
+
+      final NetworkHealth health =
+          _calculateCurrentHealth();
+
+      // ========================================================
+      // Force progress to 100% while live monitoring.
+      //
+      // The DataSource already does this, but keeping this
+      // protection here guarantees the repository does not
+      // accidentally send progress backward.
+      // ========================================================
+
+      final double effectiveProgress =
+          dataSource.isLiveMonitoring
+              ? 1.0
+              : progress.clamp(0.0, 1.0).toDouble();
+
+      // ========================================================
+      // Forward complete current diagnostic state.
+      // ========================================================
+
+      _diagnosticUpdateController.add(
+        NetworkDiagnosticUpdate(
+          stage: stage,
+          progress: effectiveProgress,
+          idlePingMs: _idlePingMs,
+          downloadMbps: _downloadMbps,
+          downloadPingMs: _downloadPingMs,
+          uploadMbps: _uploadMbps,
+          uploadPingMs: _uploadPingMs,
+          packetLossPercent: _packetLossPercent,
+          health: health,
+        ),
+      );
+    };
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Calculate current network health from the latest
+  // available diagnostic values.
+  // ============================================================
+
+  NetworkHealth _calculateCurrentHealth() {
+    final double? idlePing = _idlePingMs;
+    final double? downloadSpeed = _downloadMbps;
+    final double? downloadPing = _downloadPingMs;
+    final double? uploadSpeed = _uploadMbps;
+    final double? uploadPing = _uploadPingMs;
+    final double? packetLoss = _packetLossPercent;
+
+    // Some values may still be unavailable during the
+    // initial diagnostic.
+    if (idlePing == null ||
+        downloadSpeed == null ||
+        downloadPing == null ||
+        uploadSpeed == null ||
+        uploadPing == null ||
+        packetLoss == null) {
+      return NetworkHealth.unknown;
+    }
+
+    // ==========================================================
+    // DEGRADED
+    // Heavy packet loss or extremely high latency.
+    // ==========================================================
+
+    if (packetLoss >= 20 ||
+        idlePing >= 500 ||
+        downloadPing >= 500 ||
+        uploadPing >= 500) {
+      return NetworkHealth.degraded;
+    }
+
+    // ==========================================================
+    // EXCELLENT
+    // ==========================================================
+
+    if (downloadSpeed > 10 &&
+        uploadSpeed > 10) {
+      return NetworkHealth.excellent;
+    }
+
+    // ==========================================================
+    // FAIR
+    // ==========================================================
+
+    if (downloadSpeed >= 2 &&
+        uploadSpeed >= 2) {
+      return NetworkHealth.fair;
+    }
+
+    // ==========================================================
+    // POOR
+    // ==========================================================
+
+    return NetworkHealth.poor;
+  }
+
+  // ============================================================
+  // ACTIVITY 2
+  // Current network connectivity.
+  // ============================================================
+
+  @override
+  Future<NetworkStatus> getCurrentNetwork() async {
+    final List<ConnectivityResult> connectivity =
+        await dataSource.getCurrentConnectivity();
+
+    return _mapConnectivity(connectivity);
+  }
+
+  // ============================================================
+  // ACTIVITY 2
+  // Watch network connectivity changes.
+  // ============================================================
+
+  @override
+  Stream<NetworkStatus> watchNetwork() {
+    return dataSource
+        .watchConnectivity()
+        .map(_mapConnectivity);
+  }
+
+  // ============================================================
+  // ACTIVITY 2
+  // Convert connectivity_plus result to domain entity.
+  // ============================================================
+
+  NetworkStatus _mapConnectivity(
+    List<ConnectivityResult> connectivity,
+  ) {
+    if (connectivity.contains(
+      ConnectivityResult.wifi,
+    )) {
+      return const NetworkStatus(
+        type: NetworkType.wifi,
+      );
+    }
+
+    if (connectivity.contains(
+      ConnectivityResult.mobile,
+    )) {
+      return const NetworkStatus(
+        type: NetworkType.cellular,
+      );
+    }
+
+    return const NetworkStatus(
+      type: NetworkType.offline,
+    );
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Individual network measurements.
+  // ============================================================
+
+  @override
+  Future<double> measureIdlePing() {
+    return dataSource.measureIdlePing();
+  }
+
+  @override
+  Future<double> measureDownloadSpeed() {
+    return dataSource.measureDownloadSpeed();
+  }
+
+  @override
+  Future<double> measureDownloadPing() {
+    return dataSource.measureDownloadPing();
+  }
+
+  @override
+  Future<double> measureUploadSpeed() {
+    return dataSource.measureUploadSpeed();
+  }
+
+  @override
+  Future<double> measureUploadPing() {
+    return dataSource.measureUploadPing();
+  }
+
+  @override
+  Future<double> measurePacketLoss() {
+    return dataSource.measurePacketLoss();
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Run complete diagnostic.
+  //
+  // Previous realtime values are cleared before a new test
+  // begins so that the new test starts cleanly.
+  // ============================================================
+
+  @override
+  Future<NetworkDiagnosticResult> runNetworkDiagnostic() async {
+    // Make sure live monitoring is stopped before
+    // starting a new complete diagnostic.
+    await dataSource.stopLiveMonitoring();
+
+    // Clear previous values.
+    _idlePingMs = null;
+    _downloadMbps = null;
+    _downloadPingMs = null;
+    _uploadMbps = null;
+    _uploadPingMs = null;
+    _packetLossPercent = null;
+
+    return dataSource.runNetworkDiagnostic();
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Realtime diagnostic stream.
+  // ============================================================
+
+  @override
+  Stream<NetworkDiagnosticUpdate> watchDiagnosticUpdates() {
+    return _diagnosticUpdateController.stream;
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Start Live Performance Monitoring.
+  //
+  // The actual monitoring loop is handled by the DataSource.
+  // The Repository only delegates the operation.
+  // ============================================================
+
+  @override
+  Future<void> startLiveMonitoring() {
+    return dataSource.startLiveMonitoring();
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Stop Live Performance Monitoring.
+  // ============================================================
+
+  @override
+  Future<void> stopLiveMonitoring() {
+    return dataSource.stopLiveMonitoring();
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Check whether Live Performance Monitoring is active.
+  // ============================================================
+
+  @override
+  bool get isLiveMonitoring {
+    return dataSource.isLiveMonitoring;
+  }
+
+  // ============================================================
+  // ACTIVITY 3
+  // Dispose repository resources.
+  // ============================================================
+
+  Future<void> dispose() async {
+    // Stop live monitoring first so that no new updates
+    // are generated while the stream is being closed.
+    await dataSource.stopLiveMonitoring();
+
+    await _diagnosticUpdateController.close();
+  }
+}
+===== NETWORK_DATA_SOURCE.DART =====
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:http/http.dart' as http;
+
+import '../../domain/entities/network_diagnostic_result.dart';
+import '../../domain/entities/network_status.dart';
+
+class NetworkDataSource {
+  final Connectivity connectivity;
+
+  NetworkDataSource({
+    required this.connectivity,
+  });
+
+  // ------------------------------------------------------------
+  // Connectivity
+  // ------------------------------------------------------------
+
+  Future<List<ConnectivityResult>> getCurrentConnectivity() {
+    return connectivity.checkConnectivity();
+  }
+
+  Stream<List<ConnectivityResult>> watchConnectivity() {
+    return connectivity.onConnectivityChanged;
+  }
+
+  // ------------------------------------------------------------
+  // Test endpoints
+  // ------------------------------------------------------------
+
+  static final Uri _pingUrl = Uri.parse(
+    'https://httpbin.org/get',
+  );
+
+  static Uri _downloadUrl(int bytes) {
+    return Uri.parse(
+      'https://httpbin.org/bytes/$bytes',
+    );
+  }
+
+  static final Uri _uploadUrl = Uri.parse(
+    'https://httpbin.org/post',
+  );
+
+  // ------------------------------------------------------------
+  // Diagnostic configuration
+  // ------------------------------------------------------------
+
+  // ============================================================
+  // ACTIVITY 3
+  // Number of idle ping attempts.
+  // ============================================================
+
+  static const int _pingAttempts = 5;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Number of packet-loss requests.
+  // ============================================================
+
+  static const int _packetLossAttempts = 10;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Download test size.
+  // ============================================================
+
+  static const int _downloadBytes = 5 * 1024 * 1024;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Upload test size.
+  // ============================================================
+
+  static const int _uploadBytes = 5 * 1024 * 1024;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Upload chunk size.
+  // ============================================================
+
+  static const int _uploadChunkSize = 64 * 1024;
+
+  // ============================================================
+  // ACTIVITY 3
+  // Minimum interval between realtime updates.
+  // ============================================================
+
+  static const Duration _realtimeUpdateInterval =
+      Duration(milliseconds: 100);
+
+  // ============================================================
+  // LIVE PERFORMANCE MONITORING
+  //
+  // After the initial diagnostic reaches 100%, the user can
+  // start live monitoring.
+  //
+  // A complete live measurement is performed every 3 seconds.
+  // ============================================================
+
+  static const Duration _liveMonitoringInterval =
+      Duration(seconds: 3);
+
+  // ------------------------------------------------------------
+  // Cached diagnostic values
+  // ------------------------------------------------------------
+
+  // Last measured download ping.
+  double _lastDownloadPing = 0;
+
+  // Last measured upload ping.
+  double _lastUploadPing = 0;
+
+  // Current download progress.
+  double _downloadCurrentProgress = 0.20;
+
+  // ------------------------------------------------------------
+  // Live monitoring state
+  // ------------------------------------------------------------
+
+  // ============================================================
+  // TRUE when Live Performance Monitoring is running.
+  // ============================================================
+
+  bool _isLiveMonitoring = false;
+
+  // ============================================================
+  // Stores the current live-monitoring task.
+  //
+  // This gives us a controlled lifecycle instead of creating
+  // an uncontrolled background loop.
+  // ============================================================
+
+  Future<void>? _liveMonitoringTask;
+
+  // ------------------------------------------------------------
+  // Realtime diagnostic update callback
+  // ------------------------------------------------------------
+
+  // ============================================================
+  // Activity 3
+  //
+  // stage:
+  //   Current diagnostic stage.
+  //
+  // value:
+  //   Main measured value.
+  //
+  // secondaryValue:
+  //   Secondary value, such as download/upload ping.
+  //
+  // progress:
+  //   Diagnostic progress from 0.0 to 1.0.
+  // ============================================================
+
+  Future<void> Function(
+    String stage,
+    double? value,
+    double? secondaryValue,
+    double progress,
+  )? onDiagnosticUpdate;
+
+  // ============================================================
+  // Send realtime update.
+  //
+  // IMPORTANT:
+  // During Live Performance Monitoring, progress is ALWAYS
+  // forced to 100%.
+  // ============================================================
+
+  Future<void> _sendDiagnosticUpdate({
+    required String stage,
+    double? value,
+    double? secondaryValue,
+    required double progress,
+  }) async {
+    final callback = onDiagnosticUpdate;
+
+    if (callback == null) {
+      return;
+    }
+
+    final effectiveProgress = _isLiveMonitoring
+        ? 1.0
+        : progress.clamp(0.0, 1.0).toDouble();
+
+    await callback(
+      stage,
+      value,
+      secondaryValue,
+      effectiveProgress,
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Idle Ping
+  // ------------------------------------------------------------
+
+  Future<double> measureIdlePing() async {
+    final pingResults = <double>[];
+
+    // ==========================================================
+    // Reset diagnostic state.
+    // ==========================================================
+
+    _lastDownloadPing = 0;
+    _lastUploadPing = 0;
+    _downloadCurrentProgress = 0.20;
+
+    await _sendDiagnosticUpdate(
+      stage: 'Idle Ping',
+      value: null,
+      secondaryValue: null,
+      progress: 0.05,
+    );
+
+    for (int i = 0; i < _pingAttempts; i++) {
+      final stopwatch = Stopwatch()..start();
+
+      try {
+        final response = await http
+            .get(_pingUrl)
+            .timeout(
+              const Duration(seconds: 5),
+            );
+
+        stopwatch.stop();
+
+        if (response.statusCode >= 200 &&
+            response.statusCode < 400) {
+          final ping =
+              stopwatch.elapsedMicroseconds / 1000;
+
+          pingResults.add(ping);
+
+          await _sendDiagnosticUpdate(
+            stage: 'Idle Ping',
+            value: ping,
+            secondaryValue: null,
+            progress: 0.05 +
+                ((i + 1) / _pingAttempts) * 0.15,
+          );
+        }
+      } catch (_) {
+        stopwatch.stop();
+      }
+
+      await Future<void>.delayed(
+        const Duration(milliseconds: 100),
+      );
+    }
+
+    if (pingResults.isEmpty) {
+      return 9999;
+    }
+
+    return _average(pingResults);
+  }
+
+  // ------------------------------------------------------------
+  // Download Speed
+  // ------------------------------------------------------------
+
+  Future<double> measureDownloadSpeed() async {
+    final pingValues = <double>[];
+
+    bool running = true;
+
+    _downloadCurrentProgress = 0.20;
+
+    // ==========================================================
+    // Measure ping while download is running.
+    // ==========================================================
+
+    final pingTask = _measurePingWhileTransfer(
+      pingValues,
+      () => running,
+      stage: 'Download',
+      getProgress: () => _downloadCurrentProgress,
+    );
+
+    final stopwatch = Stopwatch()..start();
+
+    int totalBytes = 0;
+
+    DateTime lastRealtimeUpdate =
+        DateTime.fromMillisecondsSinceEpoch(0);
+
+    try {
+      final request = http.Request(
+        'GET',
+        _downloadUrl(_downloadBytes),
+      );
+
+      final response = await request.send().timeout(
+            const Duration(seconds: 30),
+          );
+
+      await for (final chunk in response.stream) {
+        totalBytes += chunk.length;
+
+        final elapsedSeconds =
+            stopwatch.elapsedMicroseconds / 1000000;
+
+        if (elapsedSeconds <= 0) {
+          continue;
+        }
+
+        final currentMbps = _calculateMbps(
+          totalBytes,
+          elapsedSeconds,
+        );
+
+        final downloadProgress =
+            (totalBytes / _downloadBytes)
+                .clamp(0.0, 1.0)
+                .toDouble();
+
+        _downloadCurrentProgress =
+            0.20 + (downloadProgress * 0.25);
+
+        final now = DateTime.now();
+
+        if (now.difference(lastRealtimeUpdate) >=
+            _realtimeUpdateInterval) {
+          lastRealtimeUpdate = now;
+
+          await _sendDiagnosticUpdate(
+            stage: 'Download',
+            value: currentMbps,
+            secondaryValue: pingValues.isEmpty
+                ? null
+                : pingValues.last,
+            progress: _downloadCurrentProgress,
+          );
+        }
+      }
+    } catch (_) {
+      running = false;
+
+      await pingTask;
+
+      _lastDownloadPing = pingValues.isEmpty
+          ? 9999
+          : _average(pingValues);
+
+      return 0;
+    }
+
+    stopwatch.stop();
+
+    running = false;
+
+    await pingTask;
+
+    _lastDownloadPing = pingValues.isEmpty
+        ? 9999
+        : _average(pingValues);
+
+    if (totalBytes == 0) {
+      return 0;
+    }
+
+    final seconds =
+        stopwatch.elapsedMicroseconds / 1000000;
+
+    if (seconds <= 0) {
+      return 0;
+    }
+
+    final finalSpeed = _calculateMbps(
+      totalBytes,
+      seconds,
+    );
+
+    await _sendDiagnosticUpdate(
+      stage: 'Download',
+      value: finalSpeed,
+      secondaryValue: _lastDownloadPing,
+      progress: 0.45,
+    );
+
+    return finalSpeed;
+  }
+
+  // ------------------------------------------------------------
+  // Download Ping
+  // ------------------------------------------------------------
+
+  Future<double> measureDownloadPing() async {
+    return _lastDownloadPing;
+  }
+
+  // ------------------------------------------------------------
+  // Upload Speed
+  // ------------------------------------------------------------
+
+  Future<double> measureUploadSpeed() async {
+    final pingValues = <double>[];
+
+    bool running = true;
+
+    double uploadProgress = 0.45;
+
+    // ==========================================================
+    // Measure ping while upload is running.
+    // ==========================================================
+
+    final pingTask = _measurePingWhileTransfer(
+      pingValues,
+      () => running,
+      stage: 'Upload',
+      getProgress: () => uploadProgress,
+    );
+
+    final uploadData = Uint8List(_uploadBytes);
+
+    final stopwatch = Stopwatch()..start();
+
+    DateTime lastRealtimeUpdate =
+        DateTime.fromMillisecondsSinceEpoch(0);
+
+    try {
+      final request = http.StreamedRequest(
+        'POST',
+        _uploadUrl,
+      );
+
+      request.contentLength = _uploadBytes;
+
+      request.headers['Content-Type'] =
+          'application/octet-stream';
+
+      final responseFuture = request.send().timeout(
+            const Duration(seconds: 30),
+          );
+
+      int uploadedBytes = 0;
+
+      while (uploadedBytes < _uploadBytes) {
+        final remaining =
+            _uploadBytes - uploadedBytes;
+
+        final chunkLength =
+            remaining < _uploadChunkSize
+                ? remaining
+                : _uploadChunkSize;
+
+        final chunk = uploadData.sublist(
+          uploadedBytes,
+          uploadedBytes + chunkLength,
+        );
+
+        request.sink.add(chunk);
+
+        uploadedBytes += chunkLength;
+
+        final elapsedSeconds =
+            stopwatch.elapsedMicroseconds / 1000000;
+
+        if (elapsedSeconds > 0) {
+          final currentMbps = _calculateMbps(
+            uploadedBytes,
+            elapsedSeconds,
+          );
+
+          final transferProgress =
+              (uploadedBytes / _uploadBytes)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+
+          uploadProgress =
+              0.45 + (transferProgress * 0.25);
+
+          final now = DateTime.now();
+
+          if (now.difference(lastRealtimeUpdate) >=
+              _realtimeUpdateInterval) {
+            lastRealtimeUpdate = now;
+
+            await _sendDiagnosticUpdate(
+              stage: 'Upload',
+              value: currentMbps,
+              secondaryValue: pingValues.isEmpty
+                  ? null
+                  : pingValues.last,
+              progress: uploadProgress,
+            );
+          }
+        }
+
+        await Future<void>.delayed(
+          const Duration(milliseconds: 1),
+        );
+      }
+
+      await request.sink.close();
+
+      await responseFuture;
+    } catch (_) {
+      running = false;
+
+      await pingTask;
+
+      _lastUploadPing = pingValues.isEmpty
+          ? 9999
+          : _average(pingValues);
+
+      return 0;
+    }
+
+    stopwatch.stop();
+
+    running = false;
+
+    await pingTask;
+
+    _lastUploadPing = pingValues.isEmpty
+        ? 9999
+        : _average(pingValues);
+
+    final seconds =
+        stopwatch.elapsedMicroseconds / 1000000;
+
+    if (seconds <= 0) {
+      return 0;
+    }
+
+    final finalSpeed = _calculateMbps(
+      _uploadBytes,
+      seconds,
+    );
+
+    await _sendDiagnosticUpdate(
+      stage: 'Upload',
+      value: finalSpeed,
+      secondaryValue: _lastUploadPing,
+      progress: 0.70,
+    );
+
+    return finalSpeed;
+  }
+
+  // ------------------------------------------------------------
+  // Upload Ping
+  // ------------------------------------------------------------
+
+  Future<double> measureUploadPing() async {
+    return _lastUploadPing;
+  }
+
+  // ------------------------------------------------------------
+  // Packet Loss
+  // ------------------------------------------------------------
+
+  Future<double> measurePacketLoss() async {
+    int failed = 0;
+
+    await _sendDiagnosticUpdate(
+      stage: 'Packet Loss',
+      value: 0,
+      secondaryValue: null,
+      progress: 0.70,
+    );
+
+    for (int i = 0; i < _packetLossAttempts; i++) {
+      try {
+        final response = await http
+            .get(_pingUrl)
+            .timeout(
+              const Duration(seconds: 5),
+            );
+
+        if (response.statusCode < 200 ||
+            response.statusCode >= 400) {
+          failed++;
+        }
+      } catch (_) {
+        failed++;
+      }
+
+      final packetLoss =
+          (failed / (i + 1)) * 100;
+
+      await _sendDiagnosticUpdate(
+        stage: 'Packet Loss',
+        value: packetLoss,
+        secondaryValue: null,
+        progress: 0.70 +
+            ((i + 1) / _packetLossAttempts) * 0.20,
+      );
+
+      await Future<void>.delayed(
+        const Duration(milliseconds: 100),
+      );
+    }
+
+    return (failed / _packetLossAttempts) * 100;
+  }
+
+  // ------------------------------------------------------------
+  // Complete Network Diagnostic
+  // ------------------------------------------------------------
+
+  Future<NetworkDiagnosticResult>
+      runNetworkDiagnostic() async {
+    // ==========================================================
+    // Make sure an old live monitor is not running.
+    // ==========================================================
+
+    await stopLiveMonitoring();
+
+    // ==========================================================
+    // 1. Baseline idle ping
+    // ==========================================================
+
+    final idlePing =
+        await measureIdlePing();
+
+    // ==========================================================
+    // 2. Download speed + download ping
+    // ==========================================================
+
+    final downloadSpeed =
+        await measureDownloadSpeed();
+
+    final downloadPing =
+        await measureDownloadPing();
+
+    // ==========================================================
+    // 3. Upload speed + upload ping
+    // ==========================================================
+
+    final uploadSpeed =
+        await measureUploadSpeed();
+
+    final uploadPing =
+        await measureUploadPing();
+
+    // ==========================================================
+    // 4. Packet loss
+    // ==========================================================
+
+    final packetLoss =
+        await measurePacketLoss();
+
+    // ==========================================================
+    // 5. Classify network health
+    // ==========================================================
+
+    final health =
+        _classifyNetworkHealth(
+      downloadSpeed: downloadSpeed,
+      uploadSpeed: uploadSpeed,
+      idlePing: idlePing,
+      downloadPing: downloadPing,
+      uploadPing: uploadPing,
+      packetLoss: packetLoss,
+    );
+
+    // ==========================================================
+    // 6. Diagnostic completed.
+    //
+    // Progress is now 100%.
+    // ==========================================================
+
+    await _sendDiagnosticUpdate(
+      stage: 'Diagnostic Complete',
+      value: null,
+      secondaryValue: null,
+      progress: 1.0,
+    );
+
+    return NetworkDiagnosticResult(
+      idlePingMs: idlePing,
+      downloadMbps: downloadSpeed,
+      downloadPingMs: downloadPing,
+      uploadMbps: uploadSpeed,
+      uploadPingMs: uploadPing,
+      packetLossPercent: packetLoss,
+      health: health,
+    );
+  }
+
+  // ------------------------------------------------------------
+  // Live Performance Monitoring
+  // ------------------------------------------------------------
+
+  // ============================================================
+  // START MONITORING
+  //
+  // This does NOT affect the original diagnostic result.
+  //
+  // It starts a separate continuous measurement cycle after
+  // the diagnostic has already reached 100%.
+  // ============================================================
+
+Future<void> startLiveMonitoring() async {
+  if (_isLiveMonitoring) {
+    return;
+  }
+
+  _isLiveMonitoring = true;
+
+  await _sendDiagnosticUpdate(
+    stage: 'Live Performance Monitoring',
+    value: null,
+    secondaryValue: null,
+    progress: 1.0,
+  );
+
+  _liveMonitoringTask = _runLiveMonitoringLoop();
+}
+
+  // ============================================================
+  // STOP MONITORING
+  //
+  // Stops the monitoring loop safely.
+  // ============================================================
+
+  Future<void> stopLiveMonitoring() async {
+    if (!_isLiveMonitoring) {
+      return;
+    }
+
+    _isLiveMonitoring = false;
+
+    final task = _liveMonitoringTask;
+
+    if (task != null) {
+      await task;
+    }
+
+    _liveMonitoringTask = null;
+
+    await _sendDiagnosticUpdate(
+      stage: 'Monitoring Stopped',
+      value: null,
+      secondaryValue: null,
+      progress: 1.0,
+    );
+  }
+
+  // ============================================================
+  // CHECK MONITORING STATE
+  // ============================================================
+
+  bool get isLiveMonitoring {
+    return _isLiveMonitoring;
+  }
+
+  // ============================================================
+  // LIVE MONITORING LOOP
+  //
+  // One complete cycle:
+  //
+  // Idle Ping
+  //       â†“
+  // Download + Ping
+  //       â†“
+  // Upload + Ping
+  //       â†“
+  // Packet Loss
+  //       â†“
+  // Wait 3 seconds
+  //       â†“
+  // Repeat
+  //
+  // Progress remains 100%.
+  // ============================================================
+
+  Future<void> _runLiveMonitoringLoop() async {
+    while (_isLiveMonitoring) {
+      try {
+        // ------------------------------------------------------
+        // Live Idle Ping
+        // ------------------------------------------------------
+
+        await measureIdlePing();
+
+        if (!_isLiveMonitoring) {
+          break;
+        }
+
+        // ------------------------------------------------------
+        // Live Download
+        // ------------------------------------------------------
+
+        await measureDownloadSpeed();
+
+        if (!_isLiveMonitoring) {
+          break;
+        }
+
+        // ------------------------------------------------------
+        // Live Upload
+        // ------------------------------------------------------
+
+        await measureUploadSpeed();
+
+        if (!_isLiveMonitoring) {
+          break;
+        }
+
+        // ------------------------------------------------------
+        // Live Packet Loss
+        // ------------------------------------------------------
+
+        await measurePacketLoss();
+
+        if (!_isLiveMonitoring) {
+          break;
+        }
+
+        // ------------------------------------------------------
+        // Complete live cycle
+        // ------------------------------------------------------
+
+        await _sendDiagnosticUpdate(
+          stage: 'Live Performance',
+          value: null,
+          secondaryValue: null,
+          progress: 1.0,
+        );
+      } catch (_) {
+        // Keep the monitor alive if one measurement fails.
+
+        await _sendDiagnosticUpdate(
+          stage: 'Live Performance',
+          value: null,
+          secondaryValue: null,
+          progress: 1.0,
+        );
+      }
+
+      if (!_isLiveMonitoring) {
+        break;
+      }
+
+      // --------------------------------------------------------
+      // Wait before the next complete measurement cycle.
+      // --------------------------------------------------------
+
+      await Future<void>.delayed(
+        _liveMonitoringInterval,
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Ping while transfer is running
+  // ------------------------------------------------------------
+
+  Future<void> _measurePingWhileTransfer(
+    List<double> results,
+    bool Function() isRunning, {
+    required String stage,
+    required double Function() getProgress,
+  }) async {
+    while (isRunning()) {
+      final stopwatch = Stopwatch()..start();
+
+      try {
+        final response = await http
+            .get(_pingUrl)
+            .timeout(
+              const Duration(seconds: 5),
+            );
+
+        stopwatch.stop();
+
+        if (response.statusCode >= 200 &&
+            response.statusCode < 400) {
+          final ping =
+              stopwatch.elapsedMicroseconds / 1000;
+
+          results.add(ping);
+
+          await _sendDiagnosticUpdate(
+            stage: stage,
+            value: null,
+            secondaryValue: ping,
+            progress: getProgress()
+                .clamp(0.0, 1.0)
+                .toDouble(),
+          );
+        }
+      } catch (_) {
+        stopwatch.stop();
+      }
+
+      await Future<void>.delayed(
+        const Duration(milliseconds: 100),
+      );
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Calculate Mbps
+  // ------------------------------------------------------------
+
+  double _calculateMbps(
+    int bytes,
+    double seconds,
+  ) {
+    if (bytes <= 0 || seconds <= 0) {
+      return 0;
+    }
+
+    final bits = bytes * 8;
+
+    return bits /
+        seconds /
+        1000000;
+  }
+
+  // ------------------------------------------------------------
+  // Average
+  // ------------------------------------------------------------
+
+  double _average(
+    List<double> values,
+  ) {
+    if (values.isEmpty) {
+      return 0;
+    }
+
+    final total = values.reduce(
+      (a, b) => a + b,
+    );
+
+    return total / values.length;
+  }
+
+  // ------------------------------------------------------------
+  // Network Health Classification
+  // ------------------------------------------------------------
+
+  NetworkHealth _classifyNetworkHealth({
+    required double downloadSpeed,
+    required double uploadSpeed,
+    required double idlePing,
+    required double downloadPing,
+    required double uploadPing,
+    required double packetLoss,
+  }) {
+    // ==========================================================
+    // DEGRADED
+    // Heavy packet loss or extremely high latency.
+    // ==========================================================
+
+    if (packetLoss >= 20 ||
+        idlePing >= 500 ||
+        downloadPing >= 500 ||
+        uploadPing >= 500) {
+      return NetworkHealth.degraded;
+    }
+
+    // ==========================================================
+    // EXCELLENT
+    // ==========================================================
+
+    if (downloadSpeed > 10 &&
+        uploadSpeed > 10) {
+      return NetworkHealth.excellent;
+    }
+
+    // ==========================================================
+    // FAIR
+    // ==========================================================
+
+    if (downloadSpeed >= 2 &&
+        uploadSpeed >= 2) {
+      return NetworkHealth.fair;
+    }
+
+    // ==========================================================
+    // POOR
+    // ==========================================================
+
+    return NetworkHealth.poor;
+  }
+}
